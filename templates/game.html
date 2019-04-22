@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Brand Factory Game</title>
+    {% load static %}
+    {% get_static_prefix as STATIC_PREFIX %}
+    {% get_media_prefix as MEDIA_PREFIX %}
+    
+    <script type="text/javascript" src="{{STATIC_PREFIX}}js/cocos2d-js-v3.8.js" charset="UTF-8"></script>
+    <script type="text/javascript" src="{{STATIC_PREFIX}}js/jquery.min.js" charset="UTF-8"></script>
+    <style>
+        @font-face {
+            font-family: 'Dot Matrix Bold';
+            src: url("{{STATIC_PREFIX}}Fonts/DOTMBold.TTF");
+        }
+		@font-face {
+            font-family: 'Helvetica Narrow Bold';
+            src: url("{{STATIC_PREFIX}}Fonts/Helvetica-Narrow-Bold.ttf");
+        }
+     </style>
+</head>
+
+<body>
+
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <script type="text/javascript">
+        function assignCouponToWinner(id){
+            console.log("{{host}}")
+            var settings = {
+                "async": true,
+                "crossDomain": true,
+                "url": "{{host}}brand_factory/user_coupons/",
+                "method": "POST",
+                "headers": {
+                    "authorization": "token {{token}}"
+                },
+                "data": '{"coupon":'+id+'}'
+            }
+
+            $.ajax(settings).done(function (response) {
+                console.log(response);
+            });                     
+        }
+        function resize_canvas() {
+            canvas = document.getElementById("gameCanvas");
+            if (canvas.width < window.innerWidth) {
+                canvas.width = window.innerWidth;
+            }
+
+            if (canvas.height < window.innerHeight) {
+                canvas.height = window.innerHeight;
+            }
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resize_canvas();
+        function showgameend(data) {
+            var obj = JSON.parse(data);
+            aftersprite.setVisible(true);
+            rewardbrandlabel.setString(obj.name);
+            if (obj.percent == parseInt(obj.percent))
+                rewardperlabel.setString(obj.percent + "% OFF");
+            else
+                rewardperlabel.setString(obj.percent);
+            rewardcodelabel.setString(obj.code);
+        }
+
+		// function savecoupan(cid)
+		// {
+		//  	$.post("savecoupan.php",
+		// 	    {
+		// 	        coupan_id: cid,
+		// 	        user_id: <?php echo $user['id']; ?>,
+		// 	        access_token: "<?php echo $_param['access_token']; ?>"
+		// 	    },
+		// 	    function(data, status){
+
+		// 		showgameend(data);
+		// 	        // alert("Data: " + data + "\nStatus: " + status);
+		// 	    });
+		// }
+    </script>
+    <script type="text/javascript">
+        var GlobalScale = window.innerWidth / 640;
+        var aftersprite = null;
+        var rewardbrandlabel = null;
+        var rewardperlabel = null;
+        var rewardcodelabel = null;
+
+        var handle = null;
+        var congolabel = null;
+        // var userid=<?php echo $user['id']; ?>;
+        var userid = "{{ user_id }}";
+        // var username="<?php echo $user['name']; ?>";
+        var username = "{{ username }}";
+        var titlewidth = 180;
+        var titleheight = 85;
+        var updateinterval = 1 / 60.0;
+        var maxSpeed = 40.0;
+        var incSpeed = 5;
+        var istouch = false;
+        var set = true;
+        var target = 0;
+        var targetindex = -1;
+        var moved = false;
+        var targetMove1 = 0;
+        var targetMove2 = 0;
+        var icons = []
+        var ids = []
+        var percents = []
+        window.onload = function () {
+
+            "{% for id in ids %}"
+            ids.push("{{id}}")
+            "{% endfor %}"
+
+            "{% for percent in percents %}"
+            percents.push("{{percent}}")
+            "{% endfor %}"
+
+            "{% for icon in icons %}"
+            icons.push("{{MEDIA_PREFIX}}{{icon}}")
+            "{% endfor %}"
+
+            console.log(icons, ids, percents)
+
+            cc.game.onStart = function () {
+
+                cc._loaderImage = "{{MEDIA_PREFIX}}pic_folder/default_image.png"
+
+                console.log(cc._loaderImage)
+                
+                cc.LoaderScene.preload([
+                    "{{STATIC_PREFIX}}Images/gamemachine_shadow.png", 
+                    "{{STATIC_PREFIX}}Images/afterbg.png", 
+                    "{{STATIC_PREFIX}}Images/congo.png", 
+                    "{{STATIC_PREFIX}}Images/handle.png", 
+                    "{{STATIC_PREFIX}}Images/levis.png", 
+                    "{{STATIC_PREFIX}}Fonts/DOTMBold.TTF", 
+                    "{{STATIC_PREFIX}}Fonts/Helvetica-Narrow-Bold.ttf"], function () {
+                        var MyScene = cc.Scene.extend({
+                            brands: [],
+                            brands_per: [],
+                            brandnames: icons,
+                            brandpers: percents,
+                            brandids: ids,
+                            totalbrands: "{{count}}",
+                            speed: 0.0,
+                            speed2: 0.0,
+                            runflag: 0,
+
+                            downhandle: function () {
+
+                                if (moved)
+                                    return;
+
+
+                                for (var j = 0; j < this.totalbrands; j++) {
+
+
+                                    var br_per = this.brands_per[j];
+
+                                    var childNode = br_per._children;
+                                    for (var i = 0; i < childNode.length; i++) {
+                                        var child = childNode[i];
+                                        child.setColor(cc.color(200, 200, 200));
+                                    }
+                                }
+
+
+
+
+                                moved = true;
+                                handle.setFlippedY(true);
+                                handle.setAnchorPoint(0, 1 - 0.075);
+                                set = false;
+                                this.runflag = 1;
+                            },
+
+                            uphandle: function () {
+                                handle.setFlippedY(false);
+                                handle.setAnchorPoint(0, 0.075);
+
+                                this.runflag = 0;
+
+                                target = Math.floor((Math.random() * (this.totalbrands)) + 1);
+                                target = target - 1;
+
+
+                                var br = this.brands[target];
+                                var br_per = this.brands_per[target];
+
+
+                                var midy = br.getPositionY() + titleheight / 2;
+                                var midy2 = br_per.getPositionY() + titleheight / 2;
+
+
+                                var diff = 1.5 * titleheight - midy;
+                                var diff2 = 1.5 * titleheight - midy2;
+
+
+                                var mov = (16 - this.totalbrands);
+
+                                if (mov < 1)
+                                    mov = 1;
+
+
+                                targetMove1 = mov * this.totalbrands * titleheight - diff;
+                                targetMove2 = mov * this.totalbrands * titleheight + diff2;
+
+
+                            },
+
+                            forcemove: function (dy, dy2, index) {
+                                for (var i = 0; i < this.totalbrands; i++) {
+
+                                    var br = this.brands[i];
+                                    var br_per = this.brands_per[i];
+
+                                    var actionMove = cc.MoveTo.create(0.1, cc.p(br.getPositionX(), br.getPositionY() + dy));
+                                    br.runAction(actionMove);
+
+
+                                    var actionMove2 = cc.MoveTo.create(0.1, cc.p(br_per.getPositionX(), br_per.getPositionY() + dy2));
+                                    br_per.runAction(actionMove2);
+
+
+                                }
+                                set = true;
+
+
+                                var br_per = this.brands_per[index];
+
+                                var childNode = br_per._children;
+                                for (var i = 0; i < childNode.length; i++) {
+                                    var child = childNode[i];
+                                    child.setColor(cc.color(255, 0, 0));
+
+
+
+                                }
+                                // aftersprite.setVisible(true);
+                                // congolabel.setVisible(true);
+                                // congolabel.runAction(cc.RepeatForever.create(cc.blink(2, 3)));
+                                // savecoupan(this.brandids[index]);
+                                //  alert(this.brandids[index]);
+
+
+                            },
+
+                            tick: function () {
+
+                                if (this.runflag == 1) {
+
+                                    if (this.speed < maxSpeed)
+                                        this.speed = this.speed + incSpeed;
+
+                                    if (this.speed > maxSpeed)
+                                        this.speed = maxSpeed;
+
+                                    if (this.speed2 < maxSpeed)
+                                        this.speed2 = this.speed2 + incSpeed;
+
+                                    if (this.speed2 > maxSpeed)
+                                        this.speed2 = maxSpeed;
+
+
+                                }
+                                else if (this.runflag == 0) {
+                                    if (this.speed > 0) {
+
+                                        if (this.speed > maxSpeed / 2)
+                                            this.speed = this.speed - incSpeed / 10;
+                                        else if (this.speed > maxSpeed / 3)
+                                            this.speed = this.speed - incSpeed / 20;
+                                        else if (this.speed > maxSpeed / 4)
+                                            this.speed = this.speed - incSpeed / 30;
+                                        else if (this.speed > maxSpeed / 5)
+                                            this.speed = this.speed - incSpeed / 30;
+                                        else if (this.speed > maxSpeed / 6)
+                                            this.speed = this.speed - incSpeed / 30;
+                                        else
+                                            this.speed = this.speed - incSpeed / 20;
+
+
+
+                                    }
+
+
+                                    if (this.speed2 > 0) {
+
+                                        if (this.speed2 > maxSpeed / 2)
+                                            this.speed2 = this.speed2 - incSpeed / 10;
+                                        else if (this.speed2 > maxSpeed / 3)
+                                            this.speed2 = this.speed2 - incSpeed / 20;
+                                        else if (this.speed2 > maxSpeed / 4)
+                                            this.speed2 = this.speed - incSpeed / 30;
+                                        else if (this.speed2 > maxSpeed / 5)
+                                            this.speed2 = this.speed - incSpeed / 30;
+                                        else if (this.speed2 > maxSpeed / 6)
+                                            this.speed2 = this.speed - incSpeed / 30;
+                                        // else
+                                        // this.speed2=this.speed-incSpeed/20;
+                                    }
+
+
+                                    targetMove1 = targetMove1 - this.speed;
+                                    targetMove2 = targetMove2 - this.speed2;
+
+                                    if (targetMove1 < 0)
+                                        this.speed = 0;
+
+                                    if (targetMove2 < 0)
+                                        this.speed2 = 0;
+
+
+                                }
+
+                                if (set && this.speed2 > 0 && targetindex >= 0) {
+
+
+
+                                    for (var i = 0; i < this.totalbrands; i++) {
+
+                                        var br = this.brands_per[i];
+                                        var midy = br.getPositionY() + titleheight / 2;
+
+                                        if (midy >= titleheight && midy < 2 * titleheight) {
+                                            var diff = 1.5 * titleheight - midy;
+
+                                            if (targetindex == i) {
+                                                this.speed2 = 0;
+                                                this.forcemove(0, diff, i);
+
+
+                                                //aftersprite.setVisible(true);
+                                                congolabel.setVisible(true);
+                                                congolabel.runAction(cc.RepeatForever.create(cc.blink(2, 3)));
+
+                                                // savecoupan(this.brandids[targetindex]);
+
+                                                targetindex = i;
+                                                console.log("winner index", ids[i], icons[i])
+                                                assignCouponToWinner(ids[i])
+                                                break;
+                                            }
+
+                                        }
+
+                                    }
+
+
+                                }
+
+
+
+                                if (this.speed == 0 && !set) {
+
+                                    for (var i = 0; i < this.totalbrands; i++) {
+
+                                        var br = this.brands[i];
+                                        var midy = br.getPositionY() + titleheight / 2;
+
+                                        if (midy >= titleheight && midy < 2 * titleheight) {
+                                            var diff = 1.5 * titleheight - midy;
+                                            this.forcemove(diff, 0, i);
+
+                                            targetindex = i;
+
+                                            break;
+                                        }
+
+                                    }
+
+
+
+                                    /*
+                                    
+                                    
+                                                                                         var br=this.brands[target];
+                                                                                         var br_per=this.brands_per[target];
+                                    
+                                                                                        var midy=br.getPositionY()+titleheight/2;
+                                                                                        var midy2=br_per.getPositionY()+titleheight/2;
+                                    
+                                                                                        var diff= 1.5*titleheight -midy;
+                                                                                        var diff2= 1.5*titleheight -midy2
+                                    
+                                                                                        this.forcemove(diff,diff2,target);
+                                    
+                                    */
+
+
+
+                                    set = true;
+                                }
+
+
+
+
+                                if (this.speed2 < 0)
+                                    this.speed2 = 0;
+
+                                if (this.speed < 0)
+                                    this.speed = 0;
+
+
+                                for (var i = 0; i < this.totalbrands; i++) {
+
+                                    var br = this.brands[i];
+                                    var br_per = this.brands_per[i];
+
+
+                                    if (br.getPositionY() <= -titleheight * (this.totalbrands - 2))
+                                        br.setPosition(br.getPositionX(), br.getPositionY() + this.totalbrands * titleheight);
+
+
+                                    br.setPosition(br.getPositionX(), br.getPositionY() - this.speed);
+
+
+
+
+                                    if (br_per.getPositionY() >= titleheight * (this.totalbrands))
+                                        br_per.setPosition(br_per.getPositionX(), br_per.getPositionY() - this.totalbrands * titleheight);
+
+
+                                    br_per.setPosition(br_per.getPositionX(), br_per.getPositionY() + this.speed2);
+
+
+                                }
+
+
+
+
+
+
+                            },
+
+
+                            onEnter: function () {
+
+                                this._super();
+                                var size = cc.director.getWinSize();
+                                var base = new cc.LayerColor(cc.color(54, 38, 25), window.innerWidth, 140 * GlobalScale);
+                                this.addChild(base, 1);
+                                base.setPosition(0, 0);
+
+
+                                var sprite = cc.Sprite.create("{{STATIC_PREFIX}}Images/gamemachine_shadow.png");
+                                this.addChild(sprite);
+                                sprite.setScale(GlobalScale);
+
+                                sprite.setPosition(window.innerWidth / 2, (729 * GlobalScale) / 2 + 140 * GlobalScale);
+
+                                aftersprite = cc.Sprite.create("{{STATIC_PREFIX}}Images/afterbg.png");
+                                this.addChild(aftersprite);
+                                aftersprite.setScale(GlobalScale);
+
+                                aftersprite.setPosition(window.innerWidth / 2, (718 * GlobalScale) / 2 + 140 * GlobalScale);
+
+                                aftersprite.setVisible(false);
+
+
+
+                                var base1 = new cc.LayerColor(cc.color(0, 0, 0), titlewidth + 20, titleheight * 50);
+                                sprite.addChild(base1, -1);
+                                base1.setPosition(310, 360);
+
+
+                                var strip1 = new cc.LayerColor(cc.color(230, 230, 230), titlewidth + 20, titleheight * 3);
+                                sprite.addChild(strip1, -1);
+                                strip1.setPosition(105, 135);
+
+
+
+                                {
+
+                                    var bs = new cc.LayerColor(cc.color(255, 255, 255), titlewidth, titleheight);
+                                    strip1.addChild(bs);
+                                    bs.setPosition(10, titleheight);
+
+                                }
+
+
+
+                                var strip2 = new cc.LayerColor(cc.color(230, 230, 230), titlewidth + 20, titleheight * 3);
+                                sprite.addChild(strip2, -2);
+                                strip2.setPosition(310, 135);
+
+
+                                {
+
+                                    var bs = new cc.LayerColor(cc.color(255, 255, 255), titlewidth, titleheight);
+                                    strip2.addChild(bs);
+                                    bs.setPosition(10, titleheight);
+
+                                }
+
+
+
+                                for (var i = 0; i < this.totalbrands; i++) {
+                                    var bs;
+
+                                    //  if(i%2==1)
+                                    bs = new cc.LayerColor(cc.color(225, 225, 225), titlewidth, titleheight);
+                                    //  else
+                                    //        bs= new cc.LayerColor(cc.color(255 ,255,255), titlewidth,titleheight);
+
+                                    strip1.addChild(bs);
+                                    bs.setPosition(10, 2 * titleheight - titleheight * i);
+
+                                    bs.setOpacity(0);
+
+                                    var sp = cc.Sprite.create(this.brandnames[i]);
+                                    bs.addChild(sp);
+                                    sp.setPosition(90, titleheight / 2);
+
+
+
+                                    var bs1;
+
+                                    //    if(i%2==1)
+                                    bs1 = new cc.LayerColor(cc.color(225, 225, 225), titlewidth, titleheight);
+
+                                    bs1.setOpacity(0);
+
+                                    //   else
+                                    //   bs1= new cc.LayerColor(cc.color(255 ,255,255), titlewidth,titleheight);
+
+                                    strip2.addChild(bs1);
+                                    bs1.setPosition(10, 2 * titleheight - titleheight * i);
+
+                                    if (this.brandpers[i] == parseInt(this.brandpers[i])) {
+                                        var desctext = cc.LabelTTF.create(this.brandpers[i], "Helvetica-bold", 70, cc.size(90, 75), cc.TEXT_ALIGNMENT_CENTER);
+                                        bs1.addChild(desctext);
+                                        desctext.setColor(cc.color(200, 200, 200));
+                                        desctext.setPosition(180 * .35, titleheight / 2);
+
+
+                                        var pertext = cc.LabelTTF.create("%\nOFF", "Helvetica", 25, cc.size(90, 55), cc.TEXT_ALIGNMENT_LEFT);
+                                        bs1.addChild(pertext);
+                                        pertext.setColor(cc.color(200, 200, 200));
+                                        pertext.setPosition(180 * .85, titleheight / 2);
+
+                                    }
+                                    else {
+
+                                        var desctext = cc.LabelTTF.create(this.brandpers[i], "Helvetica-bold", 30, cc.size(titlewidth, titleheight), cc.TEXT_ALIGNMENT_CENTER, cc.TEXT_ALIGNMENT_CENTER);
+                                        bs1.addChild(desctext);
+                                        desctext.setColor(cc.color(200, 200, 200));
+                                        desctext.setPosition(titlewidth / 2, titleheight / 2);
+
+
+                                    }
+                                    this.brands[i] = bs;
+                                    this.brands_per[i] = bs1;
+
+                                }
+
+
+
+
+                                handle = cc.Sprite.create("{{STATIC_PREFIX}}Images/handle.png");
+                                sprite.addChild(handle);
+                                handle.setAnchorPoint(0, 0.075);
+                                handle.setPosition(520, 260);
+
+                                var userlabel = cc.LabelTTF.create(username, "Helvetica Narrow Bold", 25, cc.size(200, 30), cc.TEXT_ALIGNMENT_CENTER);
+                                sprite.addChild(userlabel);
+                                userlabel.setPosition(385, 450);
+
+                                var userlabel2 = cc.LabelTTF.create(username, "Helvetica Narrow Bold", 25, cc.size(200, 30), cc.TEXT_ALIGNMENT_CENTER);
+                                aftersprite.addChild(userlabel2);
+                                userlabel2.setPosition(475, 665);
+
+                                rewardbrandlabel = cc.LabelTTF.create("", "Helvetica Narrow Bold", 56);
+                                aftersprite.addChild(rewardbrandlabel);
+                                rewardbrandlabel.setPosition(aftersprite.getContentSize().width / 2, 440);
+
+
+                                rewardperlabel = cc.LabelTTF.create("", "Helvetica Narrow Bold", 35);
+                                aftersprite.addChild(rewardperlabel);
+                                rewardperlabel.setPosition(aftersprite.getContentSize().width / 2, 385);
+
+
+                                rewardcodelabel = cc.LabelTTF.create("", "Helvetica Narrow Bold", 65);
+                                aftersprite.addChild(rewardcodelabel);
+                                rewardcodelabel.setPosition(aftersprite.getContentSize().width / 2, 275);
+
+                                rewardcodelabel.setColor(cc.color(200, 0, 0));
+
+
+
+
+                                var congo = cc.Sprite.create("{{STATIC_PREFIX}}Images/congo.png");
+                                aftersprite.addChild(congo);
+                                congo.runAction(cc.RepeatForever.create(cc.blink(2, 3)));
+                                congo.setPosition(380, 617);
+
+
+
+                                congolabel = cc.LabelTTF.create("CONGRATULATION!", "Dot Matrix Bold", 40, cc.size(400, 45), cc.TEXT_ALIGNMENT_CENTER);
+                                sprite.addChild(congolabel);
+                                congolabel.setPosition(325, 515);
+
+
+
+                                congolabel.setVisible(false);
+
+                                /*
+                                                                                    var validtext=cc.LabelTTF.create("OFFER VALID FOR 24 HOURS.",  "Helvetica-bold", 35*GlobalScale, cc.size(window.innerWidth,40*GlobalScale), cc.TEXT_ALIGNMENT_CENTER);
+                                                                                    base.addChild(validtext);
+                                                                                    validtext.setPosition(window.innerWidth/2,100*GlobalScale);
+                                                                                    */
+
+                                var desctext = cc.LabelTTF.create("WALK TO YOUR NEAREST BRAND FACTORY NOW", "Helvetica", 20 * GlobalScale, cc.size(window.innerWidth, 25 * GlobalScale), cc.TEXT_ALIGNMENT_CENTER);
+                                base.addChild(desctext);
+                                desctext.setPosition(window.innerWidth / 2, 70 * GlobalScale);
+
+                                var showtext = cc.LabelTTF.create("AND SHOW THIS M-COUPON.", "Helvetica-bold", 25 * GlobalScale, cc.size(window.innerWidth, 30 * GlobalScale), cc.TEXT_ALIGNMENT_CENTER);
+                                base.addChild(showtext);
+                                showtext.setPosition(window.innerWidth / 2, 40 * GlobalScale);
+
+
+                                this.schedule(this.tick, updateinterval);
+
+
+                                cc.eventManager.addListener({
+                                    event: cc.EventListener.TOUCH_ONE_BY_ONE,
+                                    // When "swallow touches" is true, then returning 'true' from the onTouchBegan method will "swallow" the touch event, preventing other listeners from using it.
+                                    swallowTouches: true,
+                                    //onTouchBegan event callback function
+                                    onTouchBegan: function (touch, event) {
+                                        // event.getCurrentTarget() returns the *listener's* sceneGraphPriority node.
+                                        var target = event.getCurrentTarget();
+
+
+                                        var rect = handle.getBoundingBox();
+                                        var point = sprite.convertToNodeSpace(touch.getLocation());
+
+                                        if (cc.rectContainsPoint(rect, point))
+                                            istouch = true;
+
+
+
+
+
+
+                                        return true;
+                                    },
+                                    //Trigger when moving touch
+                                    onTouchMoved: function (touch, event) {
+                                        //Move the position of current button sprite
+                                        var target = event.getCurrentTarget();
+                                        var delta = touch.getDelta();
+
+                                        if (istouch && delta.y < -15)
+                                            target.downhandle();
+
+
+                                    },
+                                    //Process the touch end event
+                                    onTouchEnded: function (touch, event) {
+                                        var target = event.getCurrentTarget();
+                                        if (istouch)
+                                            target.uphandle();
+                                        istouch = false;
+                                    }
+                                }, this);
+
+
+                                cc.eventManager.addListener({
+                                    event: cc.EventListener.MOUSE,
+                                    onMouseMove: function (event) {
+                                        var target = event.getCurrentTarget();
+                                        var delta = event.getDelta();
+
+
+                                        if (istouch && delta.y < -15)
+                                            target.downhandle();
+                                        // do something...
+
+
+
+                                    },
+                                    onMouseUp: function (event) {
+                                        var target = event.getCurrentTarget();
+
+
+                                        if (istouch)
+                                            target.uphandle();
+                                        istouch = false;
+                                        // do something...
+
+                                    },
+                                    onMouseDown: function (event) {
+                                        var target = event.getCurrentTarget();
+
+                                        var rect = handle.getBoundingBox();
+                                        var point = sprite.convertToNodeSpace(event.getLocation());
+
+                                        if (cc.rectContainsPoint(rect, point))
+                                            istouch = true;
+
+
+                                        // istouch=true;
+                                        // do something...
+
+
+                                    }
+
+
+                                }, this);
+
+
+
+
+                            }
+                        });
+                        cc.director.runScene(new MyScene());
+                    }, this);
+            };
+            cc.game.run("gameCanvas");
+        };
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,7 @@
+coi_app/migrations/
+*.pyc
+static/
+log/
+db.*
+.DS_Store
+media/

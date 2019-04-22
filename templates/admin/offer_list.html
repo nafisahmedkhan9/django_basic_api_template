@@ -1,0 +1,48 @@
+{% extends 'admin/change_list.html' %}
+
+{% block content_title %}
+    <h1> Select Offers to change </h1>
+{% endblock %}
+
+{% load humanize %}
+{% block result_list %}
+    {{ block.super }}
+    <!-- <div class="results">
+        <table>
+        <thead>
+        <tr>
+            <th>
+            <div class="text">
+                <a href="#">Id</a>
+            </div>
+            </th>
+            <th>
+            <div class="text">
+                <a href=”#”>Text</a>
+            </div>
+            </th>
+            <th>
+            <div class="image">
+                <a href="#">url</a>
+            </div>
+            </th>
+            <th>
+            <div class="image">
+                <a href="#">image</a>
+            </div>
+            </th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for row in summary %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td> {{ row.id }} </td>
+                <td> {{ row.short_text }} </td>
+                <td> {{ row.image_url }} </td>
+                <td> <img src={{ row.image_url }}  width="32" height="32"></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div> -->
+{% endblock %}

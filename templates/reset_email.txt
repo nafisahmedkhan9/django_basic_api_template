@@ -1,0 +1,16 @@
+Password Reset Request
+
+Hi {{name}},
+
+You recently requested a password reset. If you'd like to reset your password, please enter below OTP in COI app:
+
+{{otp}}
+
+Note we will never ask for your password over email or phone. If you did not request this change, please contact us immediately at . 
+
+Thanks,
+COI Team
+
+Copyright 2018 COI Inc. All rights reserved. 
+
+Confidentiality Notice: The contents of this email message are intended solely for the addressee and may contain confidential information. If you are not the intended recipient of this message or their agent, or if this message has been addressed to you in error, please immediately alert the sender via email reply and then delete this message and any attachments. If you are not the intended recipient, you are hereby notified that any use, dissemination, copying, or storage of this message or its attachments is strictly prohibited.
